@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	mdw "goapi/internal/api/middlewares"
 	"log"
 	"net/http"
 )
@@ -50,7 +51,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:      port,
-		Handler:   mux,
+		Handler:   mdw.ResponseTime(mdw.SecurityHeaders(mdw.Cors(mux))),
 		TLSConfig: tlsConfig,
 	}
 
