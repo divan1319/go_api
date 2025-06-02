@@ -6,6 +6,7 @@ import (
 	mdw "goapi/internal/api/middlewares"
 	"log"
 	"net/http"
+	"time"
 )
 
 func teachersHandlers(w http.ResponseWriter, r *http.Request) {
@@ -49,9 +50,10 @@ func main() {
 		MinVersion: tls.VersionTLS12,
 	}
 
+	rl := mdw.NewRateLimiter(5, time.Minute)
 	server := &http.Server{
 		Addr:      port,
-		Handler:   mdw.ResponseTime(mdw.SecurityHeaders(mdw.Cors(mux))),
+		Handler:   rl.Middleware(mdw.Compression(mdw.ResponseTime(mdw.SecurityHeaders(mdw.Cors(mux))))),
 		TLSConfig: tlsConfig,
 	}
 
