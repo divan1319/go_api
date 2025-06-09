@@ -4,61 +4,64 @@ import (
 	"crypto/tls"
 	"fmt"
 	mdw "goapi/internal/api/middlewares"
+	"goapi/internal/api/router"
+	"goapi/internal/repositories/database"
 	"log"
 	"net/http"
-	"time"
+	"os"
+
+	"github.com/joho/godotenv"
 )
-
-func teachersHandlers(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		w.Write([]byte(""))
-	case http.MethodPost:
-		w.Write([]byte(""))
-	case http.MethodPut:
-		w.Write([]byte(""))
-	case http.MethodPatch:
-		w.Write([]byte(""))
-	case http.MethodDelete:
-		w.Write([]byte(""))
-	}
-	w.Write([]byte("teachers root"))
-}
-
-func studentsHandlers(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("students root"))
-}
 
 func main() {
 
-	port := ":9000"
+	err := godotenv.Load()
+
+	if err != nil {
+		return
+	}
+
+	_, err = database.ConnectDb()
+
+	if err != nil {
+		log.Fatal("Error connecting to the database", err)
+		return
+	}
+
+	port := os.Getenv("API_PORT")
 
 	cert := "../../cert.pem"
 	key := "../../key.pem"
 
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Route root"))
-	})
-
-	mux.HandleFunc("/teachers", teachersHandlers)
-
-	mux.HandleFunc("/students", studentsHandlers)
+	mux := router.Router()
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
 
-	rl := mdw.NewRateLimiter(5, time.Minute)
+	/*
+		rl := mdw.NewRateLimiter(5, time.Minute)
+
+		hppOptions := mdw.HPPOptions{
+			CheckQuery:                  true,
+			CheckBody:                   true,
+			CheckBodyOnlyForContentType: "application/x-www-form-urlencoded",
+			Whitelist:                   []string{"allowedParam"},
+		}
+	*/
+	//secureMux := mdw.Hpp(hppOptions)(rl.Middleware(mdw.Compression(mdw.ResponseTime(mdw.SecurityHeaders(mdw.Cors(mux))))))
+	//secureMux := mdw.Cors(rl.Middleware(mdw.ResponseTime(mdw.SecurityHeaders(mdw.Compression(mdw.Hpp(hppOptions)(mux))))))
+	//secureMux := applyMiddlewares(mux, mdw.Hpp(hppOptions), mdw.Compression, mdw.SecurityHeaders, mdw.ResponseTime, rl.Middleware, mdw.Cors)
+
+	secureMux := mdw.SecurityHeaders(mux)
 	server := &http.Server{
 		Addr:      port,
-		Handler:   rl.Middleware(mdw.Compression(mdw.ResponseTime(mdw.SecurityHeaders(mdw.Cors(mux))))),
+		Handler:   secureMux,
 		TLSConfig: tlsConfig,
 	}
 
 	fmt.Println("Server running on port: ", port)
-	err := server.ListenAndServeTLS(cert, key)
+	err = server.ListenAndServeTLS(cert, key)
 
 	if err != nil {
 		log.Fatal("Error starting the server", err)
